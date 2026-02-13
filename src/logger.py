@@ -2,36 +2,56 @@ import logging
 import os
 from datetime import datetime
 
-# Create log file name using current date and time
-# Example: 02_13_2026_14_30_55.log
-LOG_FILE = f"{datetime.now().strftime('%m_%d_%Y_%H_%M_%S')}.log"
+"""
+logger.py
 
-# Create logs directory path
-# Example: project/logs
-logs_dir = os.path.join(os.getcwd(), "logs")
+This file configures logging for the entire project.
+It should be imported ONLY ONCE at application start.
 
-# Create logs folder if it doesn't exist
-os.makedirs(logs_dir, exist_ok=True)
-
-# Final full log file path
-# Example: project/logs/02_13_2026_14_30_55.log
-LOG_FILE_PATH = os.path.join(logs_dir, LOG_FILE)
+Features:
+✔ Creates logs folder automatically
+✔ Creates timestamped log file
+✔ Logs to file + console
+✔ Used across whole ML pipeline
+"""
 
 
-# Configure logging settings
+# =========================
+# Create logs directory
+# =========================
+
+LOG_DIR = os.path.join(os.getcwd(), "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+
+
+# =========================
+# Create unique log file
+# =========================
+
+LOG_FILE_NAME = f"{datetime.now().strftime('%m_%d_%Y_%H_%M_%S')}.log"
+LOG_FILE_PATH = os.path.join(LOG_DIR, LOG_FILE_NAME)
+
+
+# =========================
+# Configure logging
+# =========================
+
 logging.basicConfig(
+    level=logging.INFO,
 
-    # Where logs will be stored
-    filename=LOG_FILE_PATH,
-
-    # Log format
-    # asctime -> time
-    # lineno  -> line number
-    # name    -> module name
-    # level   -> INFO/ERROR/WARNING
-    # message -> actual log message
+    # log message format
     format="[ %(asctime)s ] %(lineno)d %(name)s - %(levelname)s - %(message)s",
 
-    # Minimum level to log
-    level=logging.INFO,
+    # log to BOTH file and console
+    handlers=[
+        logging.FileHandler(LOG_FILE_PATH),
+        logging.StreamHandler()
+    ]
 )
+
+
+# =========================
+# Test run (optional)
+# =========================
+if __name__ == "__main__":
+    logging.info("Logger initialized successfully")
