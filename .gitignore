@@ -126,7 +126,7 @@ ipython_config.py
 
 # exclude dataset
 .csv
-
+assistments_2009_2010.csv
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
 __pypackages__/
 
