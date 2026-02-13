@@ -2,32 +2,36 @@
 # Imports
 # =========================================================
 
-import os
-import sys
+import os                      # for path handling
+import sys                     # for traceback info in exceptions
 from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
 
+# sklearn preprocessing tools
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+# custom project modules
 from src.exception import CustomException
 from src.logger import logging
-from src.utils import save_object   # utility function to save pickle
+from src.utils import save_object   # function to save pickle files
 
 
 # =========================================================
 # Configuration Class
-# Stores file paths used in transformation
+# Purpose:
+#   Stores all file paths related to transformation
+#   (keeps code clean and configurable)
 # =========================================================
 
 @dataclass
 class DataTransformationConfig:
 
-    # Path where preprocessing object will be saved
+    # Location where preprocessing object will be saved
     preprocessor_obj_file_path: str = os.path.join(
         "artifacts",
         "preprocessor.pkl"
@@ -41,17 +45,19 @@ class DataTransformationConfig:
 #   2. Scale numerical features
 #   3. Encode categorical features
 #   4. Save preprocessing object
-#   5. Return processed arrays
+#   5. Return transformed arrays
 # =========================================================
 
 class DataTransformation:
 
     def __init__(self):
+        # Load configuration
         self.data_transformation_config = DataTransformationConfig()
 
 
     # =====================================================
-    # Create preprocessing object (ColumnTransformer)
+    # Create preprocessing object
+    # This object defines HOW data will be transformed
     # =====================================================
     def get_data_transformer_object(self):
 
@@ -59,17 +65,17 @@ class DataTransformation:
             logging.info("Creating preprocessing pipelines")
 
 
-            # =============================================
+            # -------------------------------------------------
             # Separate column types
-            # =============================================
+            # -------------------------------------------------
 
-            # Numerical features → scaling needed
+            # Numerical columns → scaling required
             numerical_columns = [
                 "writing score",
                 "reading score"
             ]
 
-            # Categorical features → encoding needed
+            # Categorical columns → encoding required
             categorical_columns = [
                 "gender",
                 "race/ethnicity",
@@ -79,11 +85,12 @@ class DataTransformation:
             ]
 
 
-            # =============================================
+            # -------------------------------------------------
             # Numerical Pipeline
-            #   1. Fill missing with median
-            #   2. Scale values
-            # =============================================
+            # Steps:
+            #   1. Replace missing values using median
+            #   2. Standard scaling (mean=0, std=1)
+            # -------------------------------------------------
             num_pipeline = Pipeline(
                 steps=[
                     ("imputer", SimpleImputer(strategy="median")),
@@ -92,11 +99,12 @@ class DataTransformation:
             )
 
 
-            # =============================================
+            # -------------------------------------------------
             # Categorical Pipeline
-            #   1. Fill missing with most frequent
-            #   2. One hot encoding
-            # =============================================
+            # Steps:
+            #   1. Replace missing using most frequent
+            #   2. Convert categories → numbers (OneHot)
+            # -------------------------------------------------
             cat_pipeline = Pipeline(
                 steps=[
                     ("imputer", SimpleImputer(strategy="most_frequent")),
@@ -105,9 +113,10 @@ class DataTransformation:
             )
 
 
-            # =============================================
-            # Combine both pipelines
-            # =============================================
+            # -------------------------------------------------
+            # ColumnTransformer
+            # Applies different pipelines to different columns
+            # -------------------------------------------------
             preprocessing = ColumnTransformer(
                 [
                     ("num_pipeline", num_pipeline, numerical_columns),
@@ -125,7 +134,9 @@ class DataTransformation:
 
 
     # =====================================================
-    # Main transformation method
+    # Main Transformation Function
+    # Flow:
+    #   Read data → preprocess → save object → return arrays
     # =====================================================
     def initiate_data_transformation(self, train_path, test_path):
 
@@ -133,28 +144,28 @@ class DataTransformation:
             logging.info("Reading train and test datasets")
 
 
-            # =============================================
-            # Read datasets
-            # =============================================
+            # -------------------------------------------------
+            # Step 1: Load datasets
+            # -------------------------------------------------
             train_df = pd.read_csv(train_path)
             test_df = pd.read_csv(test_path)
 
 
-            # =============================================
-            # Get preprocessing object
-            # =============================================
+            # -------------------------------------------------
+            # Step 2: Get preprocessing object
+            # -------------------------------------------------
             preprocessing_obj = self.get_data_transformer_object()
 
 
-            # =============================================
-            # Target column
-            # =============================================
+            # -------------------------------------------------
+            # Step 3: Define target column
+            # -------------------------------------------------
             target_column_name = "math score"
 
 
-            # =============================================
-            # Separate input and target
-            # =============================================
+            # -------------------------------------------------
+            # Step 4: Split input features and target
+            # -------------------------------------------------
             input_feature_train_df = train_df.drop(columns=[target_column_name])
             target_feature_train_df = train_df[target_column_name]
 
@@ -167,8 +178,11 @@ class DataTransformation:
 
             # ==================================================
             # VERY IMPORTANT (ML best practice)
-            # Fit ONLY on train
-            # Transform test
+            #
+            # fit() ONLY on training data
+            # transform() on test data
+            #
+            # Prevents data leakage
             # ==================================================
             input_feature_train_arr = preprocessing_obj.fit_transform(
                 input_feature_train_df
@@ -179,9 +193,10 @@ class DataTransformation:
             )
 
 
-            # =============================================
-            # Combine features + target
-            # =============================================
+            # -------------------------------------------------
+            # Step 5: Combine features + target
+            # np.c_ concatenates horizontally
+            # -------------------------------------------------
             train_arr = np.c_[
                 input_feature_train_arr,
                 np.array(target_feature_train_df)
@@ -193,9 +208,10 @@ class DataTransformation:
             ]
 
 
-            # =============================================
-            # Save preprocessing object for future prediction
-            # =============================================
+            # -------------------------------------------------
+            # Step 6: Save preprocessing object
+            # Needed later for prediction/inference
+            # -------------------------------------------------
             save_object(
                 file_path=self.data_transformation_config.preprocessor_obj_file_path,
                 obj=preprocessing_obj
@@ -204,9 +220,9 @@ class DataTransformation:
             logging.info("Preprocessor object saved successfully")
 
 
-            # =============================================
-            # Return arrays and file path
-            # =============================================
+            # -------------------------------------------------
+            # Step 7: Return processed arrays
+            # -------------------------------------------------
             return (
                 train_arr,
                 test_arr,

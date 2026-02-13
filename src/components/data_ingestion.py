@@ -1,97 +1,88 @@
-# =========================
+# ======================================================
 # Import required libraries
-# =========================
+# ======================================================
 
-import os                      # for file/folder path handling
-import sys                     # for exception traceback info
-import pandas as pd            # for dataframe operations
+import os
+import sys
+import pandas as pd
 
-from sklearn.model_selection import train_test_split  # for splitting dataset
-from dataclasses import dataclass                    # for config class
+from sklearn.model_selection import train_test_split
+from dataclasses import dataclass
 
-from src.exception import CustomException            # custom error handling
-from src.logger import logging                      # logging system
+from src.exception import CustomException
+from src.logger import logging
+
+# Import next pipeline component
+from src.components.data_transformation import DataTransformation
+
 
 
 # ======================================================
-# Config class (stores all file paths in one place)
-# ======================================================
-# @dataclass automatically creates __init__ for us
-# Helps keep configuration clean and manageable
+# Config class
+# Stores file paths used during ingestion
 # ======================================================
 
 @dataclass
 class DataIngestionConfig:
 
-    # Path where training data will be saved
+    # Training dataset path
     train_data_path: str = os.path.join('artifacts', "train.csv")
 
-    # Path where testing data will be saved
+    # Testing dataset path
     test_data_path: str = os.path.join('artifacts', "test.csv")
 
-    # Path where raw original data will be saved
+    # Raw dataset backup path
     raw_data_path: str = os.path.join('artifacts', "data.csv")
 
 
 
 # ======================================================
 # Data Ingestion Component
-# Responsibility:
+# Responsibilities:
 #   1. Read dataset
-#   2. Store raw copy
-#   3. Split into train/test
+#   2. Save raw copy
+#   3. Split train/test
 #   4. Save files
+#   5. Return paths
 # ======================================================
 
 class DataIngestion:
 
-    # Constructor
-    # Initializes configuration object
     def __init__(self):
+        # load configuration
         self.ingestion_config = DataIngestionConfig()
 
 
-    # Main method to start ingestion process
     def initiate_data_ingestion(self):
 
-        logging.info("Entered the data ingestion component")
+        logging.info("Entered Data Ingestion component")
 
         try:
-            # ==================================================
-            # Step 1: Read dataset from notebook/data folder
-            # ==================================================
+            # =========================================
+            # Step 1: Read dataset
+            # =========================================
             df = pd.read_csv('notebook/data/stud.csv')
-            logging.info("Dataset read successfully as dataframe")
+            logging.info("Dataset loaded successfully")
 
 
-            # ==================================================
-            # Step 2: Create artifacts folder if not present
-            # ==================================================
-            # os.path.dirname gets folder name from file path
+            # =========================================
+            # Step 2: Create artifacts folder
+            # =========================================
             os.makedirs(
                 os.path.dirname(self.ingestion_config.train_data_path),
                 exist_ok=True
             )
 
 
-            # ==================================================
-            # Step 3: Save raw/original data (backup copy)
-            # ==================================================
-            df.to_csv(
-                self.ingestion_config.raw_data_path,
-                index=False,
-                header=True
-            )
+            # =========================================
+            # Step 3: Save raw dataset copy
+            # =========================================
+            df.to_csv(self.ingestion_config.raw_data_path, index=False)
 
 
-            logging.info("Train-test split initiated")
-
-
-            # ==================================================
-            # Step 4: Split data into train and test
-            # 80% train, 20% test
-            # random_state ensures same split every run
-            # ==================================================
+            # =========================================
+            # Step 4: Train-Test Split
+            # =========================================
             train_set, test_set = train_test_split(
                 df,
                 test_size=0.2,
@@ -99,41 +90,55 @@ class DataIngestion:
             )
 
 
-            # ==================================================
-            # Step 5: Save train and test datasets separately
-            # ==================================================
-            train_set.to_csv(
-                self.ingestion_config.train_data_path,
-                index=False,
-                header=True
-            )
-
-            test_set.to_csv(
-                self.ingestion_config.test_data_path,
-                index=False,
-                header=True
-            )
+            # =========================================
+            # Step 5: Save split datasets
+            # =========================================
+            train_set.to_csv(self.ingestion_config.train_data_path, index=False)
+            test_set.to_csv(self.ingestion_config.test_data_path, index=False)
 
 
-            logging.info("Data ingestion completed successfully")
+            logging.info("Data ingestion completed")
 
 
-            # ==================================================
-            # Step 6: Return file paths for next pipeline steps
-            # ==================================================
+            # =========================================
+            # Return paths for next stage
+            # =========================================
             return (
                 self.ingestion_config.train_data_path,
                 self.ingestion_config.test_data_path
             )
 
 
-        # ==================================================
-        # Error handling using custom exception
-        # ==================================================
         except Exception as e:
             raise CustomException(e, sys)
 
 
-if __name__=="__main__":
-    obj=DataIngestion()
-    obj.initiate_data_ingestion()
+
+# ======================================================
+# Pipeline Runner (Entry Point)
+# ======================================================
+
+if __name__ == "__main__":
+
+    try:
+        logging.info("Pipeline started")
+
+        # -------------------------
+        # Step 1: Data Ingestion
+        # -------------------------
+        ingestion_obj = DataIngestion()
+        train_path, test_path = ingestion_obj.initiate_data_ingestion()
+
+
+        # -------------------------
+        # Step 2: Data Transformation
+        # -------------------------
+        transformation_obj = DataTransformation()
+        train_arr, test_arr, preprocessor_path = \
+            transformation_obj.initiate_data_transformation(train_path, test_path)
+
+
+        logging.info("Pipeline completed successfully")
+
+    except Exception as e:
+        raise CustomException(e, sys)
