@@ -1,11 +1,12 @@
 # ======================================================
 # utils.py
-# Utility helper functions used across project
+# Utility helper functions used across the project
 # ======================================================
 
 import os
 import sys
-import dill                    # used to serialize python objects
+import dill                          # used to serialize Python objects
+from sklearn.metrics import r2_score
 
 from src.exception import CustomException
 from src.logger import logging
@@ -13,35 +14,34 @@ from src.logger import logging
 
 
 # ======================================================
-# Save object as pickle file
-# Used for:
-#   - saving model.pkl
-#   - saving preprocessor.pkl
-#   - saving any trained object
+# Function: save_object
+# Purpose:
+#   Save any Python object (model, preprocessor, etc.)
+#   into a pickle file using dill
 # ======================================================
 def save_object(file_path, obj):
 
     try:
         # ----------------------------------------------
-        # Get directory path from file path
-        # Example: artifacts/model.pkl → artifacts/
+        # Extract directory path from full file path
+        # Example:
+        #   artifacts/model.pkl → artifacts/
         # ----------------------------------------------
         dir_path = os.path.dirname(file_path)
 
-        # Create folder if it doesn't exist
+        # Create directory if it does not exist
         os.makedirs(dir_path, exist_ok=True)
 
         logging.info(f"Saving object to {file_path}")
 
         # ----------------------------------------------
-        # Save object using dill
-        # dill can serialize almost anything (better than pickle)
+        # Serialize and save object using dill
+        # dill is more flexible than pickle
         # ----------------------------------------------
         with open(file_path, "wb") as file_obj:
             dill.dump(obj, file_obj)
 
         logging.info("Object saved successfully")
-
 
     except Exception as e:
         raise CustomException(e, sys)
@@ -49,10 +49,10 @@ def save_object(file_path, obj):
 
 
 # ======================================================
-# Load object from pickle file
-# Used for:
-#   - loading model for prediction
-#   - loading preprocessor
+# Function: load_object
+# Purpose:
+#   Load a previously saved object
+#   (model, preprocessor, etc.)
 # ======================================================
 def load_object(file_path):
 
@@ -66,6 +66,56 @@ def load_object(file_path):
 
         return obj
 
+    except Exception as e:
+        raise CustomException(e, sys)
+
+
+
+# ======================================================
+# Function: evaluate_models
+# Purpose:
+#   Train multiple models and compare performance
+#
+# Input:
+#   - X_train, y_train
+#   - X_test, y_test
+#   - models (dictionary of model_name: model_object)
+#
+# Output:
+#   - Dictionary of model_name : test_r2_score
+# ======================================================
+def evaluate_models(X_train, y_train, X_test, y_test, models):
+
+    try:
+        report = {}
+
+        # ----------------------------------------------
+        # Loop through each model in dictionary
+        # ----------------------------------------------
+        for model_name, model in models.items():
+
+            # Train model
+            model.fit(X_train, y_train)
+
+            # Predict on training data
+            y_train_pred = model.predict(X_train)
+
+            # Predict on testing data
+            y_test_pred = model.predict(X_test)
+
+            # Calculate R² score
+            train_model_score = r2_score(y_train, y_train_pred)
+            test_model_score = r2_score(y_test, y_test_pred)
+
+            logging.info(
+                f"{model_name} -> Train R2: {train_model_score:.4f}, "
+                f"Test R2: {test_model_score:.4f}"
+            )
+
+            # Store test score in report dictionary
+            report[model_name] = test_model_score
+
+        return report
 
     except Exception as e:
         raise CustomException(e, sys)
