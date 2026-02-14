@@ -11,7 +11,8 @@ from sklearn.metrics import r2_score
 from src.exception import CustomException
 from src.logger import logging
 
-
+from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import r2_score
 
 # ======================================================
 # Function: save_object
@@ -84,26 +85,46 @@ def load_object(file_path):
 # Output:
 #   - Dictionary of model_name : test_r2_score
 # ======================================================
-def evaluate_models(X_train, y_train, X_test, y_test, models):
+def evaluate_models(X_train, y_train, X_test, y_test, models, params):
 
     try:
         report = {}
 
-        # ----------------------------------------------
-        # Loop through each model in dictionary
-        # ----------------------------------------------
         for model_name, model in models.items():
 
-            # Train model
-            model.fit(X_train, y_train)
+            logging.info(f"Running GridSearch for {model_name}")
 
-            # Predict on training data
-            y_train_pred = model.predict(X_train)
+            param_grid = params.get(model_name, {})
 
-            # Predict on testing data
-            y_test_pred = model.predict(X_test)
+            # If no hyperparameters provided
+            if not param_grid:
+                model.fit(X_train, y_train)
+                best_model = model
 
-            # Calculate R² score
+            else:
+                gs = GridSearchCV(
+                    estimator=model,
+                    param_grid=param_grid,
+                    cv=3,
+                    scoring="r2",
+                    n_jobs=-1,
+                    verbose=1
+                )
+
+                gs.fit(X_train, y_train)
+
+                # Best already refit
+                best_model = gs.best_estimator_
+
+                logging.info(
+                    f"{model_name} -> Best Params: {gs.best_params_}"
+                )
+
+            # Predictions
+            y_train_pred = best_model.predict(X_train)
+            y_test_pred = best_model.predict(X_test)
+
+            # Scores
             train_model_score = r2_score(y_train, y_train_pred)
             test_model_score = r2_score(y_test, y_test_pred)
 
@@ -112,7 +133,6 @@ def evaluate_models(X_train, y_train, X_test, y_test, models):
                 f"Test R2: {test_model_score:.4f}"
             )
 
-            # Store test score in report dictionary
             report[model_name] = test_model_score
 
         return report
